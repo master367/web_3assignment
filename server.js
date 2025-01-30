@@ -1,11 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt');
 const path = require('path');
 
 const app = express();
 const PORT = 3000;
-
 
 app.use(bodyParser.json());
 app.use(express.static('.'));
@@ -23,9 +23,13 @@ const User = mongoose.model('User', userSchema);
 
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
+
     try {
-        const newUser = new User({ username, password });
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const newUser = new User({ username, password: hashedPassword });
         await newUser.save();
+
         res.json({ message: 'Registration successful!' });
     } catch (error) {
         if (error.code === 11000) {
@@ -38,9 +42,12 @@ app.post('/register', async (req, res) => {
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
+
     try {
-        const user = await User.findOne({ username, password });
-        if (user) {
+        const user = await User.findOne({ username });
+
+        if (user && await bcrypt.compare(password, user.password)) {
+
             res.json({ success: true, message: 'Login successful!' });
         } else {
             res.status(400).json({ success: false, message: 'Invalid username or password.' });
